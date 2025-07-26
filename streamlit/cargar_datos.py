@@ -68,3 +68,22 @@ def show_data_tab():
     else:
         # Mensaje informativo si aún no se ha presionado el botón
         st.info("Presiona el botón para iniciar la carga.")
+
+            # ------------------------------------------------------------
+
+    st.markdown("""---  
+    ### 🏗️ Cargar Base de Infraestructura Educativa (MEN)  
+    Esta base contiene información sobre aulas nuevas, mejoradas, ampliaciones y otras intervenciones por sede.
+    [Ver fuente oficial](https://www.datos.gov.co/Educaci-n/MEN_INDICADORES_INFRAESTRUCTURA/3ncw-3qwq)
+    """)
+
+    if st.button("🏫 Cargar Infraestructura"):
+        url_infra = "https://www.datos.gov.co/api/views/3ncw-3qwq/rows.csv?accessType=DOWNLOAD"
+        try:
+            df_infra = pd.read_csv(url_infra)
+            st.session_state['df_infra'] = df_infra
+            st.success(f"✅ Infraestructura cargada: {len(df_infra)} registros")
+            st.dataframe(df_infra.head(5))
+        except Exception as e:
+            st.error(f"❌ Error al cargar: {e}")
+

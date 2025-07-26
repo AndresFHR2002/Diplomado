@@ -206,4 +206,26 @@ def show_visualization_tab():
         title="Relación entre Cobertura Neta y Población Promedio (5-16)"
     )
     st.plotly_chart(fig1, use_container_width=True)
+    
+    # ================================
+    # GRÁFICO 8: Serie de tiempo animada por departamento
+    # ================================
+    st.subheader("📈 Evolución Anual: Tasa de Matriculación por Departamento")
+
+    df_linea = df.groupby(['a_o', 'departamento'])['tasa_matriculaci_n_5_16'].mean().reset_index()
+
+    fig_line = px.line(
+        df_linea,
+        x='a_o',
+        y='tasa_matriculaci_n_5_16',
+        color='departamento',
+        markers=True,
+        title='Tasa de Matriculación (5-16 años) por Departamento - Serie de Tiempo',
+        height=600
+    )
+    fig_line.update_layout(
+        xaxis_title="Año",
+        yaxis_title="Tasa de Matriculación (%)"
+    )
+    st.plotly_chart(fig_line, use_container_width=True)
 
