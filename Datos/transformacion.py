@@ -3,72 +3,30 @@ import pandas as pd
 import plotly.express as px
 import io
 
-# Colores oficiales Universidad Santo Tomás
-UST_BLUE = "#002855"
-UST_YELLOW = "#FFD100"
-UST_GRAY = "#F5F5F5"
-UST_WHITE = "#FFFFFF"
-
-# Estilo general
-st.markdown(f"""
-    <style>
-    .main {{
-        background-color: {UST_GRAY};
-    }}
-    .stApp {{
-        background-color: {UST_WHITE};
-        color: #000000;
-        font-family: 'Segoe UI', sans-serif;
-    }}
-    .stButton>button {{
-        background-color: {UST_YELLOW};
-        color: black;
-        font-weight: bold;
-        border-radius: 10px;
-        padding: 0.5em 1em;
-    }}
-    .stDownloadButton>button {{
-        background-color: {UST_BLUE};
-        color: white;
-        font-weight: bold;
-        border-radius: 10px;
-        padding: 0.5em 1em;
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        font-weight: bold;
-        background-color: {UST_WHITE};
-        color: {UST_BLUE};
-        border-radius: 6px 6px 0 0;
-        border: 1px solid #CCC;
-    }}
-    </style>
-""", unsafe_allow_html=True)
-
 def show_transform_tab():
-    st.title("📊 Dashboard Educativo: Modelo Estrella")
+    st.title("\U0001F4CA Dashboard Educativo: Modelo Estrella")
 
     if 'df_raw' not in st.session_state:
-        st.warning("🔺 Primero debes cargar los datos desde la pestaña correspondiente.")
+        st.warning("\u26a0\ufe0f Primero debes cargar los datos desde la pestaña correspondiente.")
         return
 
     df = st.session_state['df_raw'].copy()
 
-    tabla_deptos = (
-        df
-        .query("departamento != 'NACIONAL'")
-        [['c_digo_departamento','departamento']]
-        .drop_duplicates()
-        .groupby('c_digo_departamento')
-        .sample(n=1, random_state=1)
-        .reset_index()
-        .drop(columns= 'index')
-    )
+    # 🔄 Renombrar columnas en minúscula
+    df.columns = [c.lower() for c in df.columns]
 
-    df = (
-        df
-        .query("departamento != 'NACIONAL'")
-        .drop(columns = 'departamento')
-        .merge(tabla_deptos, on = 'c_digo_departamento', how = 'left')
+    # 🔄 Limpieza general de departamento y municipio
+    df['departamento'] = df['departamento'].str.replace(",", "", regex=False).str.strip().str.title()
+    df['municipio'] = df['municipio'].str.replace(",", "", regex=False).str.strip().str.title()
+
+    # ❌ Eliminar registros del nivel nacional
+    df = df[df['departamento'] != 'Nacional']
+
+    # 🔄 Unificar San Andrés
+    df['departamento'] = df['departamento'].str.replace(
+        r"Archipielago De San Andres[,.].*Providencia Y Santa Catalina",
+        "San Andres",
+        regex=True
     )
 
     st.markdown("""
@@ -82,17 +40,18 @@ def show_transform_tab():
 
     st.markdown("---")
     st.subheader("1️⃣ Limpieza y Validación de Datos")
+
     columnas_relevantes = [
         'a_o', 'departamento', 'municipio', 'c_digo_departamento',
         'poblaci_n_5_16', 'tasa_matriculaci_n_5_16',
         'cobertura_neta', 'cobertura_bruta'
     ]
-    columnas_faltantes = [col for col in columnas_relevantes if col not in df.columns] # list comprehension
+    columnas_faltantes = [col for col in columnas_relevantes if col not in df.columns]
     if columnas_faltantes:
         st.error(f"❌ Columnas faltantes: {columnas_faltantes}")
         return
+
     df = df[columnas_relevantes]
-    df.columns = [c.lower() for c in df.columns]
     for col in df.columns:
         if col not in ['departamento', 'municipio', 'c_digo_departamento']:
             df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -101,6 +60,13 @@ def show_transform_tab():
     col1, col2 = st.columns(2)
     col1.metric("Registros originales", len(st.session_state['df_raw']))
     col2.metric("Registros válidos", len(df_clean))
+
+    # Verificación visual de registros de Bogotá
+    st.markdown("\n**🔹 Registros de Bogotá luego de limpieza:**")
+    st.dataframe(df_clean[df_clean['municipio'].str.contains("Bogotá", na=False)][['a_o', 'municipio']].head(10))
+
+    st.markdown("\n**🔹 Años únicos:**")
+    st.dataframe(df_clean[df_clean['municipio'].str.contains("Bogotá", na=False)][['a_o']].drop_duplicates())
 
     st.markdown("---")
     st.subheader("2️⃣ Dimensiones del Modelo Estrella")
@@ -130,8 +96,7 @@ def show_transform_tab():
     df_fact = df_clean.merge(dim_tiempo, on='a_o') \
                       .merge(dim_geo, on=['departamento', 'municipio', 'c_digo_departamento'], how='inner')
 
-    df_fact = df_fact[[
-        'id_tiempo', 'id_geo',
+    df_fact = df_fact[['id_tiempo', 'id_geo',
         'poblaci_n_5_16', 'tasa_matriculaci_n_5_16',
         'cobertura_neta', 'cobertura_bruta']]
 
@@ -153,13 +118,13 @@ def show_transform_tab():
         y='tasa_matriculaci_n_5_16',
         title='Top 10 Municipios con Mayor Tasa de Escolaridad (5-16 años)',
         labels={'tasa_matriculaci_n_5_16': 'Tasa de Escolaridad (%)'},
-        color_discrete_sequence=[UST_BLUE]
+        color_discrete_sequence=['#002855']
     )
     st.plotly_chart(fig, use_container_width=True)
 
     cobertura_depto = df_fact.merge(dim_geo, on='id_geo') \
         .groupby('departamento')['cobertura_neta'].mean().sort_values(ascending=False).head(10)
-    st.markdown("**🏛️ Top Departamentos por Cobertura Neta Promedio**")
+    st.markdown("**🏩 Top Departamentos por Cobertura Neta Promedio**")
     st.dataframe(cobertura_depto.reset_index())
 
     st.markdown("---")
@@ -172,7 +137,7 @@ def show_transform_tab():
     output.seek(0)
 
     st.download_button(
-        label="📥 Descargar Tabla de Hechos",
+        label="🗓️ Descargar Tabla de Hechos",
         data=output,
         file_name='tabla_hechos_educacion.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
